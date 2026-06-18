@@ -1,11 +1,20 @@
-import jwt from 'jsonwebtoken';
+import jwt, { JwtPayload, SignOptions } from 'jsonwebtoken';
 
-export const generateToken = (payload: object, expiresIn: string | number = '1d'): string => {
-  const secret = process.env.JWT_SECRET || 'fallback_secret_key';
-  return jwt.sign(payload, secret, { expiresIn: expiresIn as jwt.SignOptions['expiresIn'] });
+const secret = process.env.JWT_SECRET;
+
+if (!secret) {
+  throw new Error('JWT_SECRET is not defined');
+}
+
+export const generateToken = (
+  payload: object,
+  expiresIn: SignOptions['expiresIn'] = '1d'
+): string => {
+  return jwt.sign(payload, secret, { expiresIn });
 };
 
-export const verifyToken = (token: string): any => {
-  const secret = process.env.JWT_SECRET || 'fallback_secret_key';
+export const verifyToken = (
+  token: string
+): JwtPayload | string => {
   return jwt.verify(token, secret);
 };
