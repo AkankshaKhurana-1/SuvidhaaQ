@@ -9,8 +9,8 @@ export const sendResponse = (
 ) => {
   return res.status(statusCode).json({
     success,
-    message,
     data,
+    message,
   });
 };
 
