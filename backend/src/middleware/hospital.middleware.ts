@@ -1,36 +1,22 @@
-import { Response, NextFunction } from 'express';
-import { AuthRequest } from './auth.middleware';
-import { sendError } from '../utils/response';
-import { prisma } from '../prisma/client';
+import { Request, Response, NextFunction } from 'express';
 
-export const requireHospitalAccess = async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-   
-    const hospitalId = req.body.hospitalId || req.params.hospitalId || req.query.hospitalId;
-    const userId = req.user.id;
+export interface HospitalRequest extends Request {
+  hospitalId?: string;
+}
 
-    if (!hospitalId) {
+export const hospitalMiddleware = (
+  req: HospitalRequest,
+  res: Response,
+  next: NextFunction
+): void => {
+  // Extract Hospital ID/Branch ID from headers to support multi-branch hospital setups
+  const hospitalId = req.headers['x-hospital-id'] as string;
 
-      return next();
-    }
-
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    
-    if (!user) {
-      return sendError(res, 401, 'User not found');
-    }
-
-   
-    if (user.role === 'PATIENT') {
-        return sendError(res, 403, 'Patients cannot manage hospital resources');
-    }
-
-    if (user.hospitalId !== hospitalId) {
-      return sendError(res, 403, 'Access denied. You are not assigned to this hospital.');
-    }
-
-    next();
-  } catch (error) {
-    return sendError(res, 500, 'Error verifying hospital access', error);
+  if (hospitalId) {
+    req.hospitalId = hospitalId;
   }
+
+  // TODO: Add verification for hospitalId exists in config/database if multi-tenancy is active
+
+  next();
 };

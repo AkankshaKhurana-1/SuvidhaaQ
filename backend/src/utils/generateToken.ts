@@ -1,17 +1,14 @@
 import jwt from 'jsonwebtoken';
+import { env } from '../config/env';
 
+export interface TokenPayload {
+  id: string;
+  email: string;
+  role: string;
+}
 
-export const generateQueueToken = (queueNumber: number, prefix: string = 'Q'): string => {
-  const formattedNumber = queueNumber.toString().padStart(3, '0');
-  return `${prefix}-${formattedNumber}`;
-};
-
-export const generateAuthToken = (payload: object, expiresIn: string | number = '1d'): string => {
-  const secret = process.env.JWT_SECRET || 'fallback_secret_key';
-  return jwt.sign(payload, secret, { expiresIn: expiresIn as jwt.SignOptions['expiresIn'] });
-};
-
-export const verifyToken = (token: string): any => {
-  const secret = process.env.JWT_SECRET || 'fallback_secret_key';
-  return jwt.verify(token, secret);
+export const generateToken = (payload: TokenPayload): string => {
+  return jwt.sign(payload, env.JWT_SECRET, {
+    expiresIn: '24h',
+  });
 };

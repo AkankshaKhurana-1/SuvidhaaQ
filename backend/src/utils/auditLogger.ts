@@ -1,33 +1,58 @@
-import fs from 'fs';
-import path from 'path';
+// TODO: Implement actual database write for audit logs using Prisma client
 
-// Define logs directory relative to src folder
-const logFilePath = path.join(__dirname, '../../logs/audit.log');
-
-// Ensure log directory exists
-const logDir = path.dirname(logFilePath);
-if (!fs.existsSync(logDir)) {
-  fs.mkdirSync(logDir, { recursive: true });
+export interface PatientStatusAuditInput {
+  patientId: string;
+  token: number;
+  oldStatus: string;
+  newStatus: string;
+  changedBy: string;
+  changedByRole: string;
+  remarks?: string;
 }
 
-export const auditLog = (
-  userId: string | 'SYSTEM',
+export const logAction = async (
+  userId: string | null,
   action: string,
-  resourceType: string,
-  resourceId: string,
-  details?: object
-) => {
+  details: string
+): Promise<void> => {
   const timestamp = new Date().toISOString();
-  
-  const logMessage = `[${timestamp}] User:${userId} | Action:${action} | Resource:${resourceType}(${resourceId}) | Details:${JSON.stringify(details || {})}\n`;
+  console.log(`[AUDIT LOG - ${timestamp}] User: ${userId || 'SYSTEM'} | Action: ${action} | Details: ${details}`);
 
-  // Output to console for visibility
-  console.log(`[AUDIT] ${action} on ${resourceType} by User ${userId}`);
+  try {
+    // TODO: Write audit log to database via Prisma:
+    // await prisma.auditLog.create({
+    //   data: { userId, action, details }
+    // });
+  } catch (error) {
+    console.error('❌ Failed to write audit log:', error);
+  }
+};
 
-  // Append to log file
-  fs.appendFile(logFilePath, logMessage, (err) => {
-    if (err) {
-      console.error('Failed to write to audit log', err);
-    }
-  });
+/**
+ * Logs a patient queue status transition to the audit trail.
+ */
+export const logPatientStatusChange = async (data: PatientStatusAuditInput): Promise<void> => {
+  const timestamp = new Date().toISOString();
+  console.log(
+    `[PATIENT STATUS AUDIT - ${timestamp}] Patient: ${data.patientId} | Token: ${data.token} | ` +
+    `Transition: ${data.oldStatus} -> ${data.newStatus} | Changed By: ${data.changedBy} (${data.changedByRole}) | ` +
+    `Remarks: ${data.remarks || 'None'}`
+  );
+
+  try {
+    // TODO: Write status change history to database via Prisma:
+    // await prisma.patientStatusHistory.create({
+    //   data: {
+    //     patientId: data.patientId,
+    //     token: data.token,
+    //     oldStatus: data.oldStatus,
+    //     newStatus: data.newStatus,
+    //     changedBy: data.changedBy,
+    //     changedByRole: data.changedByRole,
+    //     remarks: data.remarks || null
+    //   }
+    // });
+  } catch (error) {
+    console.error('❌ Failed to write patient status history audit log:', error);
+  }
 };

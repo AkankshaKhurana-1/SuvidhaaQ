@@ -1,15 +1,17 @@
 import { Response, NextFunction } from 'express';
-import { AuthRequest } from './auth.middleware';
-import { sendError } from '../utils/response';
+import { AuthenticatedRequest } from './auth.middleware';
 
-export const requireRole = (roles: string[]) => {
-  return (req: AuthRequest, res: Response, next: NextFunction) => {
-    if (!req.user || !req.user.role) {
-      return sendError(res, 403, 'Access denied. No role found.');
+export const roleMiddleware = (allowedRoles: string[]) => {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Unauthorized. Authentication required.' });
+      return;
     }
 
-    if (!roles.includes(req.user.role)) {
-      return sendError(res, 403, 'Access denied. Insufficient permissions.');
+    const hasRole = allowedRoles.includes(req.user.role);
+    if (!hasRole) {
+      res.status(403).json({ success: false, message: 'Forbidden. Insufficient permissions.' });
+      return;
     }
 
     next();
