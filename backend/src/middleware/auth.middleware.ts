@@ -24,18 +24,6 @@ export const authMiddleware = (
 
   const token = authHeader.split(' ')[1];
 
-  // Support mock tokens for easier API testing in Postman (e.g., Bearer mock-token-admin)
-  if (token.startsWith('mock-token-')) {
-    const role = token.replace('mock-token-', '').toUpperCase();
-    req.user = {
-      id: `mock-${role.toLowerCase()}-id`,
-      email: `${role.toLowerCase()}@hospital.com`,
-      role: role,
-    };
-    next();
-    return;
-  }
-
   try {
     const decoded = jwt.verify(token, env.JWT_SECRET) as {
       id: string;
