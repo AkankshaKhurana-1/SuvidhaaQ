@@ -150,12 +150,10 @@ export default function StaffLoginPage() {
               <br />
               Patients should use the{' '}
               <a
-                href="http://localhost:3000"
-                target="_blank"
-                rel="noreferrer"
+                href="/"
                 className="font-bold text-emerald-400 hover:underline"
               >
-                Patient Portal (Port 3000)
+                Patient Portal
               </a>
               .
             </p>

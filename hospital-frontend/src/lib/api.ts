@@ -1,6 +1,22 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api/v1';
+export const getApiBaseUrl = (): string => {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  if (typeof window === 'undefined') {
+    if (process.env.BACKEND_URL) {
+      return new URL('/api/v1', process.env.BACKEND_URL).toString().replace(/\/$/, '');
+    }
+    return 'http://localhost:5001/api/v1';
+  }
+  if (window.location.port !== '3000' && window.location.port !== '3001') {
+    return '/api/v1';
+  }
+  return 'http://localhost:5001/api/v1';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -72,7 +88,7 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+        const { data } = await axios.post(`${getApiBaseUrl()}/auth/refresh`, {
           refreshToken,
         });
 

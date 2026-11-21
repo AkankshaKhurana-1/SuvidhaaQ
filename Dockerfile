@@ -27,6 +27,6 @@ COPY --from=builder /app/backend/src/prisma ./backend/src/prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
-EXPOSE 3001
+EXPOSE 5001 3001 3000
 
 CMD ["node", "backend/dist/server.js"]

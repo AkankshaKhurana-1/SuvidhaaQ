@@ -24,7 +24,11 @@ app.use(
     origin: (origin, callback) => {
       // Allow requests with no origin (like mobile apps, curl, server-to-server)
       if (!origin) return callback(null, true);
-      if (env.corsOriginsList.includes(origin) || origin.startsWith('http://localhost:')) {
+      if (
+        env.corsOriginsList.includes(origin) ||
+        origin.startsWith('http://localhost:') ||
+        origin.endsWith('.vercel.app')
+      ) {
         return callback(null, true);
       }
       return callback(null, true); // Allow during development

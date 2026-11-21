@@ -72,7 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Enforcement: Patient logging in on hospital app
       if (userData.role === 'PATIENT') {
-        toast.error('Patient account detected. Please use the Patient Portal (Port 3000) instead.');
+        toast.error('Patient account detected. Please use the Patient Portal instead.');
         return;
       }
 
