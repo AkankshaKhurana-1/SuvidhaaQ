@@ -1,1 +1,41 @@
-// TODO
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: hospital_queue_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: hospital_queue
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d hospital_queue']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hospital_queue_backend
+    restart: unless-stopped
+    ports:
+      - '3001:3001'
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://postgres:postgrespassword@postgres:5432/hospital_queue
+      DIRECT_URL: postgresql://postgres:postgrespassword@postgres:5432/hospital_queue
+      JWT_SECRET: hospital_queue_super_secret_jwt_key_2026
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

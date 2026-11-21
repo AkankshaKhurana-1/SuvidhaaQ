@@ -1,1 +1,7 @@
-// TODO
+export enum QueuePriority {
+  EMERGENCY = 100,
+  SENIOR_CITIZEN = 80,
+  PREGNANT_OR_CHILD = 70,
+  SCHEDULED_APPOINTMENT = 50,
+  WALK_IN = 30,
+}

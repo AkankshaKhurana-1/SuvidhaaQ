@@ -1,4 +1,3 @@
-// TODO
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,266 +8,335 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-model admins {
-  admin_id    BigInt    @id @default(autoincrement())
-  user_id     BigInt    @unique
-  hospital_id BigInt
-  admin_level String    @db.VarChar
-  permissions Json
-  hospitals   hospitals @relation(fields: [hospital_id], references: [hospital_id])
-  users       users     @relation(fields: [user_id], references: [user_id])
+enum Role {
+  PATIENT
+  RECEPTIONIST
+  DOCTOR
+  ADMIN
 }
 
-model appointments {
-  appointment_id          BigInt                   @id @default(autoincrement())
-  patient_id              BigInt
-  doctor_id               BigInt
-  hospital_id             BigInt
-  appointment_date        DateTime
-  appointment_type        String                   @db.VarChar
-  appointment_status      String                   @db.VarChar
-  created_at              DateTime                 @default(now())
-  doctors                 doctors                  @relation(fields: [doctor_id], references: [doctor_id])
-  hospitals               hospitals                @relation(fields: [hospital_id], references: [hospital_id])
-  patients                patients                 @relation(fields: [patient_id], references: [patient_id])
-  follow_up_consultations follow_up_consultations?
-  queue_tokens            queue_tokens?
+enum AppointmentType {
+  NEW
+  FOLLOW_UP
+  WALK_IN
 }
 
-model billing_invoices {
-  invoice_id      BigInt        @id @default(autoincrement())
-  patient_id      BigInt
-  hospital_id     BigInt
-  consultation_id BigInt        @unique
-  amount          Decimal       @db.Decimal
-  payment_status  String        @db.VarChar
-  invoice_date    DateTime
-  consultations   consultations @relation(fields: [consultation_id], references: [consultation_id])
-  hospitals       hospitals     @relation(fields: [hospital_id], references: [hospital_id])
-  patients        patients      @relation(fields: [patient_id], references: [patient_id])
+enum AppointmentStatus {
+  BOOKED
+  ARRIVED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
 }
 
-model consultations {
-  consultation_id         BigInt                    @id @default(autoincrement())
-  patient_id              BigInt
-  doctor_id               BigInt
-  token_id                BigInt                    @unique
-  reason_for_visit        String
-  clinical_alerts         String
-  stage                   String                    @db.VarChar
-  consultation_notes      String
-  start_time              DateTime
-  end_time                DateTime
-  duration                Int
-  consultation_status     String                    @db.VarChar
-  billing_invoices        billing_invoices?
-  doctors                 doctors                   @relation(fields: [doctor_id], references: [doctor_id])
-  patients                patients                  @relation(fields: [patient_id], references: [patient_id])
-  queue_tokens            queue_tokens              @relation(fields: [token_id], references: [token_id])
-  follow_up_consultations follow_up_consultations[]
-  lab_reports             lab_reports[]
+enum TokenStatus {
+  PENDING
+  ARRIVED
+  DELAYED
+  CALLED
+  IN_CONSULTATION
+  COMPLETED
+  NO_SHOW
+  CANCELLED
 }
 
-model departments {
-  department_id   BigInt    @id @default(autoincrement())
-  hospital_id     BigInt
-  department_name String    @db.VarChar
-  location        String    @db.VarChar
-  daily_capacity  Int
-  created_at      DateTime  @default(now())
-  hospitals       hospitals @relation(fields: [hospital_id], references: [hospital_id])
-  doctors         doctors[]
+enum QueueTier {
+  EMERGENCY
+  SENIOR
+  NEW_CONSULTATION
+  FOLLOW_UP
+  WALK_IN
 }
 
-model doctors {
-  doctor_id               BigInt                    @id @default(autoincrement())
-  user_id                 BigInt                    @unique
-  hospital_id             BigInt
-  department_id           BigInt
-  specialization          String                    @db.VarChar
-  qualification           String                    @db.VarChar
-  experience_years        Int
-  rating                  Decimal                   @db.Decimal
-  availability_status     String                    @db.VarChar
-  appointments            appointments[]
-  consultations           consultations[]
-  departments             departments               @relation(fields: [department_id], references: [department_id])
-  hospitals               hospitals                 @relation(fields: [hospital_id], references: [hospital_id])
-  users                   users                     @relation(fields: [user_id], references: [user_id])
-  follow_up_consultations follow_up_consultations[]
-  lab_reports             lab_reports[]
-  patients                patients[]
-  queue_tokens            queue_tokens[]
-  walk_in_patients        walk_in_patients[]
+model Hospital {
+  id             String         @id @default(uuid())
+  name           String
+  registrationNo String         @unique
+  address        String
+  phone          String
+  email          String
+  workingHours   String         @default("08:00 - 20:00")
+  settings       Json?          // { capacitySplit: { new: 50, followUp: 20, walkIn: 30 } }
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  users          User[]
+  departments    Department[]
+  doctors        Doctor[]
+  patients       Patient[]
+  appointments   Appointment[]
+  queueTokens    QueueToken[]
+  consultations  Consultation[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+  billingInvoices BillingInvoice[]
+  labReports     LabReport[]
+  sequences      DoctorDailySequence[]
 }
 
-model follow_up_consultations {
-  followup_id            BigInt        @id @default(autoincrement())
-  parent_consultation_id BigInt
-  patient_id             BigInt
-  doctor_id              BigInt
-  hospital_id            BigInt
-  appointment_id         BigInt?       @unique
-  token_id               BigInt?       @unique
-  revisit_reason         String
-  test_results_attached  Boolean
-  planned_duration_mins  Int
-  followup_notes         String
-  followup_status        String        @db.VarChar
-  appointments           appointments? @relation(fields: [appointment_id], references: [appointment_id])
-  doctors                doctors       @relation(fields: [doctor_id], references: [doctor_id])
-  hospitals              hospitals     @relation(fields: [hospital_id], references: [hospital_id])
-  consultations          consultations @relation(fields: [parent_consultation_id], references: [consultation_id])
-  patients               patients      @relation(fields: [patient_id], references: [patient_id])
-  queue_tokens           queue_tokens? @relation(fields: [token_id], references: [token_id])
+model User {
+  id             String         @id @default(uuid())
+  hospitalId     String?
+  role           Role
+  name           String
+  email          String?        @unique
+  phone          String?        @unique
+  passwordHash   String
+  failedAttempts Int            @default(0)
+  lockedUntil    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  hospital       Hospital?      @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  doctor         Doctor?
+  refreshTokens  RefreshToken[]
+  notifications  Notification[]
+  bookedPatients Patient[]      @relation("UserBookedPatients")
+
+  @@index([hospitalId])
+  @@index([role])
 }
 
-model hospitals {
-  hospital_id             BigInt                    @id @default(autoincrement())
-  hospital_name           String                    @db.VarChar
-  registration_no         String                    @db.VarChar
-  branch_name             String                    @db.VarChar
-  address                 String
-  phone                   String                    @db.VarChar
-  email                   String                    @db.VarChar
-  working_hours           String                    @db.VarChar
-  created_at              DateTime                  @default(now())
-  admins                  admins[]
-  appointments            appointments[]
-  billing_invoices        billing_invoices[]
-  departments             departments[]
-  doctors                 doctors[]
-  follow_up_consultations follow_up_consultations[]
-  lab_reports             lab_reports[]
-  notifications           notifications[]
-  patients                patients[]
-  queue_tokens            queue_tokens[]
-  receptionists           receptionists[]
-  users                   users[]
-  walk_in_patients        walk_in_patients[]
+model Department {
+  id            String    @id @default(uuid())
+  hospitalId    String
+  name          String
+  location      String
+  dailyCapacity Int       @default(50)
+  createdAt     DateTime  @default(now())
+
+  hospital      Hospital  @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  doctors       Doctor[]
+
+  @@index([hospitalId])
 }
 
-model lab_reports {
-  report_id       BigInt         @id @default(autoincrement())
-  patient_id      BigInt
-  doctor_id       BigInt
-  hospital_id     BigInt
-  consultation_id BigInt?
-  report_type     String         @db.VarChar(50)
-  report_name     String         @db.VarChar(150)
-  report_file_url String
-  uploaded_by     String         @db.VarChar(20)
-  report_status   String         @db.VarChar(20)
-  uploaded_at     DateTime
-  reviewed_at     DateTime?
-  created_at      DateTime       @default(now())
-  consultations   consultations? @relation(fields: [consultation_id], references: [consultation_id])
-  doctors         doctors        @relation(fields: [doctor_id], references: [doctor_id])
-  hospitals       hospitals      @relation(fields: [hospital_id], references: [hospital_id])
-  patients        patients       @relation(fields: [patient_id], references: [patient_id])
+model Doctor {
+  id                  String         @id @default(uuid())
+  userId              String         @unique
+  hospitalId          String
+  departmentId        String
+  specialization      String
+  consultationMinutes Int            @default(15)
+  room                String
+  available           Boolean        @default(true)
+  sessionDelay        Int            @default(0) // actualDuration - plannedDuration accumulated in mins
+  createdAt           DateTime       @default(now())
+
+  user                User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hospital            Hospital       @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  department          Department     @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  appointments        Appointment[]
+  queueTokens         QueueToken[]
+  consultations       Consultation[]
+  sequences           DoctorDailySequence[]
+
+  @@index([hospitalId])
+  @@index([departmentId])
+  @@index([available])
 }
 
-model notifications {
-  notification_id BigInt    @id @default(autoincrement())
-  hospital_id     BigInt
-  user_id         BigInt
-  category        String    @db.VarChar
-  title           String    @db.VarChar
-  message         String
-  severity        String    @db.VarChar
-  is_read         Boolean   @default(false)
-  created_at      DateTime  @default(now())
-  hospitals       hospitals @relation(fields: [hospital_id], references: [hospital_id])
-  users           users     @relation(fields: [user_id], references: [user_id])
+model Patient {
+  id               String         @id @default(uuid())
+  hospitalId       String
+  bookedForUserId  String?
+  name             String
+  age              Int
+  gender           String
+  phone            String
+  isSenior         Boolean        @default(false)
+  uhid             String         @unique
+  createdAt        DateTime       @default(now())
+
+  hospital         Hospital       @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  bookedForUser    User?          @relation("UserBookedPatients", fields: [bookedForUserId], references: [id], onDelete: SetNull)
+  appointments     Appointment[]
+  queueTokens      QueueToken[]
+  consultations    Consultation[]
+  billingInvoices  BillingInvoice[]
+  labReports       LabReport[]
+
+  @@index([hospitalId])
+  @@index([phone])
+  @@index([uhid])
 }
 
-model patients {
-  patient_id              BigInt                    @id @default(autoincrement())
-  hospital_id             BigInt
-  primary_doctor_id       BigInt
-  uhid                    String                    @db.VarChar
-  full_name               String                    @db.VarChar
-  age                     Int
-  gender                  String                    @db.VarChar
-  blood_group             String                    @db.VarChar
-  billing_status          String                    @db.VarChar
-  patient_status          String                    @db.VarChar
-  appointments            appointments[]
-  billing_invoices        billing_invoices[]
-  consultations           consultations[]
-  follow_up_consultations follow_up_consultations[]
-  lab_reports             lab_reports[]
-  hospitals               hospitals                 @relation(fields: [hospital_id], references: [hospital_id])
-  doctors                 doctors                   @relation(fields: [primary_doctor_id], references: [doctor_id])
-  queue_tokens            queue_tokens[]
+model DoctorDailySequence {
+  id              String    @id @default(uuid())
+  hospitalId      String
+  doctorId        String
+  date            String    // Format: YYYY-MM-DD
+  currentSequence Int       @default(0)
+  updatedAt       DateTime  @updatedAt
+
+  hospital        Hospital  @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  doctor          Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorId, date])
+  @@index([hospitalId])
 }
 
-model queue_tokens {
-  token_id                BigInt                   @id @default(autoincrement())
-  patient_id              BigInt
-  doctor_id               BigInt
-  hospital_id             BigInt
-  appointment_id          BigInt?                  @unique
-  walkin_id               BigInt?
-  token_code              String                   @db.VarChar
-  token_type              String                   @db.VarChar
-  queue_position          Int
-  priority_score          Int
-  token_status            String                   @db.VarChar
-  check_in_time           DateTime
-  estimated_wait_time     Int
-  consultations           consultations?
-  follow_up_consultations follow_up_consultations?
-  appointments            appointments?            @relation(fields: [appointment_id], references: [appointment_id])
-  doctors                 doctors                  @relation(fields: [doctor_id], references: [doctor_id])
-  hospitals               hospitals                @relation(fields: [hospital_id], references: [hospital_id])
-  patients                patients                 @relation(fields: [patient_id], references: [patient_id])
-  walk_in_patients        walk_in_patients?        @relation(fields: [walkin_id], references: [walkin_id])
+model Appointment {
+  id           String            @id @default(uuid())
+  hospitalId   String
+  patientId    String
+  doctorId     String
+  scheduledAt  DateTime
+  type         AppointmentType   @default(NEW)
+  status       AppointmentStatus @default(BOOKED)
+  createdAt    DateTime          @default(now())
+
+  hospital     Hospital          @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  patient      Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor       Doctor            @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  queueToken   QueueToken?
+
+  @@index([hospitalId])
+  @@index([doctorId, scheduledAt])
+  @@index([status])
 }
 
-model receptionists {
-  receptionist_id  BigInt             @id @default(autoincrement())
-  user_id          BigInt             @unique
-  hospital_id      BigInt
-  shift_start      DateTime           @db.Time(6)
-  shift_end        DateTime           @db.Time(6)
-  status           String             @db.VarChar
-  hospitals        hospitals          @relation(fields: [hospital_id], references: [hospital_id])
-  users            users              @relation(fields: [user_id], references: [user_id])
-  walk_in_patients walk_in_patients[]
+model QueueToken {
+  id                   String        @id @default(uuid())
+  hospitalId           String
+  patientId            String
+  doctorId             String
+  appointmentId        String?       @unique
+  code                 String        // Format: {CATEGORY}-{SEQUENCE} e.g. NEW-001, FUP-004, WLK-012, EMG-001
+  sequence             Int
+  tier                 QueueTier
+  score                Int           @default(0)
+  status               TokenStatus   @default(PENDING)
+  position             Int           @default(0)
+  estimatedWaitMinutes Int           @default(0)
+  arrivedAt            DateTime?
+  calledAt             DateTime?
+  startedAt            DateTime?
+  completedAt          DateTime?
+  lateCount            Int           @default(0)
+  createdAt            DateTime      @default(now())
+
+  hospital             Hospital      @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  patient              Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor               Doctor        @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  appointment          Appointment?  @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  consultation         Consultation?
+
+  @@index([hospitalId])
+  @@index([doctorId, status])
+  @@index([patientId])
+  @@index([status])
+  @@index([tier])
 }
 
-model users {
-  user_id       BigInt          @id @default(autoincrement())
-  hospital_id   BigInt
-  full_name     String          @db.VarChar
-  email         String          @db.VarChar
-  password_hash String
-  role          String          @db.VarChar
-  status        String          @db.VarChar
-  last_login    DateTime?
-  admins        admins?
-  doctors       doctors?
-  notifications notifications[]
-  receptionists receptionists?
-  hospitals     hospitals       @relation(fields: [hospital_id], references: [hospital_id])
+model Consultation {
+  id              String          @id @default(uuid())
+  hospitalId      String
+  tokenId         String          @unique
+  doctorId        String
+  patientId       String
+  notes           String?
+  followUpDate    DateTime?
+  startedAt       DateTime
+  endedAt         DateTime?
+  durationMinutes Int             @default(0)
+  createdAt       DateTime        @default(now())
+
+  hospital        Hospital        @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  token           QueueToken      @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+  doctor          Doctor          @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient         Patient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  billingInvoice  BillingInvoice?
+  labReports      LabReport[]
+
+  @@index([hospitalId])
+  @@index([doctorId])
+  @@index([patientId])
 }
 
-model walk_in_patients {
-  walkin_id         BigInt         @id @default(autoincrement())
-  hospital_id       BigInt
-  receptionist_id   BigInt
-  doctor_id         BigInt
-  full_name         String         @db.VarChar
-  age               Int
-  is_senior_citizen Boolean
-  reason_for_visit  String
-  arrival_time      DateTime
-  placement_type    String         @db.VarChar
-  priority_score    Int
-  walkin_status     String         @db.VarChar
-  queue_tokens      queue_tokens[]
-  doctors           doctors        @relation(fields: [doctor_id], references: [doctor_id])
-  hospitals         hospitals      @relation(fields: [hospital_id], references: [hospital_id])
-  receptionists     receptionists  @relation(fields: [receptionist_id], references: [receptionist_id])
+model Notification {
+  id         String    @id @default(uuid())
+  hospitalId String?
+  userId     String
+  title      String
+  body       String
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  hospital   Hospital? @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([hospitalId])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  hospitalId  String?
+  actorId     String?
+  actorEmail  String?
+  role        String
+  action      String
+  entity      String
+  beforeJson  Json?
+  afterJson   Json?
+  createdAt   DateTime @default(now())
+
+  hospital    Hospital? @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+
+  @@index([hospitalId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model RefreshToken {
+  id              String    @id @default(uuid())
+  userId          String
+  token           String    @unique
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  replacedByToken String?
+  createdAt       DateTime  @default(now())
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
+
+model BillingInvoice {
+  id             String        @id @default(uuid())
+  hospitalId     String
+  patientId      String
+  consultationId String?       @unique
+  amount         Decimal       @db.Decimal(10, 2)
+  paymentStatus  String        @default("Pending") // Paid, Pending, Refunded
+  createdAt      DateTime      @default(now())
+
+  hospital       Hospital      @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  patient        Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  consultation   Consultation? @relation(fields: [consultationId], references: [id], onDelete: SetNull)
+
+  @@index([hospitalId])
+  @@index([patientId])
+}
+
+model LabReport {
+  id             String        @id @default(uuid())
+  hospitalId     String
+  patientId      String
+  consultationId String?
+  reportType     String
+  reportName     String
+  reportFileUrl  String
+  status         String        @default("Ready") // Pending, Ready, Reviewed
+  uploadedAt     DateTime      @default(now())
+
+  hospital       Hospital      @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  patient        Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  consultation   Consultation? @relation(fields: [consultationId], references: [id], onDelete: SetNull)
+
+  @@index([hospitalId])
+  @@index([patientId])
 }

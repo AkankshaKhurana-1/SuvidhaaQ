@@ -1,15 +1,14 @@
 import { Router } from 'express';
-import { AppointmentController } from '../controllers/appointment.controller';
-import { authMiddleware } from '../middleware/auth.middleware';
+import { PatientController } from '../controllers/patient.controller';
+import { authenticate } from '../middleware/authenticate';
+import { requireRole } from '../middleware/requireRole';
+import { Role } from '@prisma/client';
 
 const router = Router();
 
-// Apply auth middleware to protect these routes
-router.use(authMiddleware);
+router.use(authenticate);
 
-// Define endpoints according to contract
-router.post('/book', AppointmentController.book);
-router.get('/all', AppointmentController.getAll);
-router.get('/:patient_id', AppointmentController.getByPatient);
+// Cancel appointment
+router.post('/:id/cancel', requireRole(Role.PATIENT, Role.RECEPTIONIST, Role.ADMIN), PatientController.cancelAppointment);
 
 export default router;

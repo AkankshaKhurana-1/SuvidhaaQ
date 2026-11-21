@@ -1,44 +1,63 @@
 import { Response } from 'express';
 
-export interface ApiResponse<T = unknown> {
+export interface ApiResponse<T = any> {
   success: boolean;
-  message: string;
+  message?: string;
   data?: T;
-  details?: unknown;
+  error?: {
+    code: string;
+    message: string;
+    details?: any;
+  };
 }
 
-export const sendSuccess = <T>(
+export function sendSuccess<T>(
   res: Response,
-  data: T | null = null,
-  message = 'Request successful',
+  data: T,
+  messageOrStatus: string | number = 200,
   statusCode = 200
-): void => {
-  const responsePayload: ApiResponse<T> = {
+): void {
+  let message: string | undefined = undefined;
+  let status = 200;
+
+  if (typeof messageOrStatus === 'string') {
+    message = messageOrStatus;
+    status = statusCode || 200;
+  } else if (typeof messageOrStatus === 'number') {
+    status = messageOrStatus;
+  }
+
+  const payload: ApiResponse<T> = {
     success: true,
-    message,
+    ...(message && { message }),
+    data,
   };
+  res.status(status).json(payload);
+}
 
-  if (data !== null) {
-    responsePayload.data = data;
-  }
-
-  res.status(statusCode).json(responsePayload);
-};
-
-export const sendError = (
+export function sendError(
   res: Response,
-  message = 'An error occurred',
+  message: string,
   statusCode = 400,
-  details: unknown = null
-): void => {
-  const responsePayload: ApiResponse = {
-    success: false,
-    message,
-  };
+  codeOrDetails: any = 'BAD_REQUEST',
+  details?: any
+): void {
+  let code = 'BAD_REQUEST';
+  let finalDetails = details;
 
-  if (details !== null) {
-    responsePayload.details = details;
+  if (typeof codeOrDetails === 'string') {
+    code = codeOrDetails;
+  } else if (typeof codeOrDetails === 'object' && codeOrDetails !== null) {
+    finalDetails = codeOrDetails;
   }
 
-  res.status(statusCode).json(responsePayload);
-};
+  const payload: ApiResponse = {
+    success: false,
+    error: {
+      code,
+      message,
+      details: finalDetails,
+    },
+  };
+  res.status(statusCode).json(payload);
+}
